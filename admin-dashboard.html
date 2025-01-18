@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - TutorConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --color-background: #0a0b14;
+            --color-primary: #003060;
+            --color-secondary: #055C9D;
+            --color-tertiary: #0E86D4;
+            --color-light: #68BBE3;
+            --color-dark: #151823;
+            --color-glass: rgba(255, 255, 255, 0.1);
+            --gradient-primary: linear-gradient(135deg, var(--color-tertiary), var(--color-secondary));
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--color-background), var(--color-dark));
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .dashboard-title {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #fff, var(--color-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logout-btn {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(14, 134, 212, 0.3);
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--color-light);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 15px;
+            text-align: left;
+        }
+
+        .data-table th {
+            background: var(--color-primary);
+            color: var(--color-light);
+            font-weight: 600;
+        }
+
+        .data-table tr {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .data-table tr:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .action-btn {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(14, 134, 212, 0.3);
+        }
+
+        #message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        #message.success {
+            background: rgba(46, 213, 115, 0.2);
+            color: #2ed573;
+        }
+
+        #message.error {
+            background: rgba(255, 71, 87, 0.2);
+            color: #ff4757;
+        }
+
+        #message.info {
+            background: rgba(52, 152, 219, 0.2);
+            color: #3498db;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background: var(--color-dark);
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid var(--color-primary);
+            border-radius: 10px;
+            width: 80%;
+            max-width: 500px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #fff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal input[type="datetime-local"],
+        .modal input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid var(--color-primary);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .modal-btn {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(14, 134, 212, 0.3);
+        }
+
+        /* Loading spinner styles */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading::after {
+            content: '';
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--color-tertiary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .status-pending {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+
+        .status-approved {
+            background: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+        }
+
+        .status-scheduled {
+            background: rgba(23, 162, 184, 0.2);
+            color: #17a2b8;
+        }
+
+        .status-enrolled {
+            background: rgba(0, 123, 255, 0.2);
+            color: #007bff;
+        }
+
+        .status-completed {
+            background: rgba(108, 117, 125, 0.2);
+            color: #6c757d;
+        }
+
+        .modal select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid var(--color-primary);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .modal select option {
+            background: var(--color-dark);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-header">
+            <h1 class="dashboard-title">Admin Dashboard</h1>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="section">
+            <h2 class="section-title">Demo Requests</h2>
+            <table class="data-table" id="demoRequestsTable">
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Created At</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Demo requests will be populated here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Enrolled Courses</h2>
+            <table class="data-table" id="enrolledCoursesTable">
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Class Type</th>
+                        <th>Class Timing</th>
+                        <th>Class Link & Schedule</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Enrolled courses will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal for scheduling demo class -->
+    <div id="scheduleModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Schedule Demo Class</h2>
+            <input type="text" id="meetLink" placeholder="Enter class link" required>
+            <input type="datetime-local" id="demoDateTime" required>
+            <button class="modal-btn" onclick="submitSchedule()">Schedule</button>
+        </div>
+    </div>
+
+    <!-- Modal for submitting class link and schedule -->
+    <div id="linkModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Submit Class Link and Schedule</h2>
+            <input type="text" id="classLink" placeholder="Enter class link" required>
+            <input type="datetime-local" id="classDateTime" required>
+            <button class="modal-btn" onclick="submitClassLink()">Submit</button>
+        </div>
+    </div>
+
+    <div class="loading" id="loadingSpinner"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://qjdpzaezmtsdnnxuphim.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqZHB6YWV6bXRzZG5ueHVwaGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwODQyNzcsImV4cCI6MjA0NjY2MDI3N30.1lCVZaxUsm3uROyKtErN9fYr1KxtaY9yj0jNv1k7WmY';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentDemoRequestId = null;
+
+        function showLoading(show = true) {
+            document.getElementById('loadingSpinner').style.display = show ? 'flex' : 'none';
+        }
+
+        function getStatusBadgeHTML(status) {
+            return `<span class="status-badge status-${status.toLowerCase()}">${status}</span>`;
+        }
+
+        async function checkAuthentication() {
+            const adminId = localStorage.getItem('adminId');
+            if (!adminId) {
+                window.location.href = 'admin-login.html';
+                return false;
+            }
+            return adminId;
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = message;
+            messageDiv.className = type;
+            messageDiv.style.display = 'block';
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        async function loadDashboardData() {
+            const adminId = await checkAuthentication();
+            if (!adminId) return;
+
+            showLoading(true);
+            try {
+                console.log('Loading dashboard data for admin:', adminId);
+                await loadDemoRequests(adminId);
+                await loadEnrolledCourses(adminId);
+
+                // Add event listeners for buttons
+                document.querySelectorAll('.schedule-btn').forEach(btn => {
+                    btn.addEventListener('click', () => openScheduleModal(btn.dataset.requestId));
+                });
+                document.querySelectorAll('.complete-btn').forEach(btn => {
+                    btn.addEventListener('click', () => openAssignStageModal(btn.dataset.requestId));
+                });
+                document.querySelectorAll('.add-link-btn').forEach(btn => {
+                    btn.addEventListener('click', () => openLinkModal(btn.dataset.requestId));
+                });
+            } catch (error) {
+                console.error('Error in loadDashboardData:', error);
+                showMessage('Error loading dashboard data: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function loadDemoRequests(adminId) {
+            try {
+                console.log('Fetching demo requests for admin:', adminId);
+                const { data, error } = await supabase
+                    .from('demo_requests')
+                    .select('id, name, created_at, status, demostatus, scheduled_time')
+                    .eq('tutor_id', adminId)
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.error('Supabase error:', error);
+                    throw error;
+                }
+
+                if (!data) {
+                    console.error('No data returned from Supabase');
+                    throw new Error('No data returned from the server');
+                }
+
+                console.log('Fetched demo requests:', data);
+
+                const tableBody = document.querySelector('#demoRequestsTable tbody');
+                tableBody.innerHTML = '';
+
+                data.forEach(request => {
+                    const row = tableBody.insertRow();
+                    row.insertCell(0).textContent = request.name;
+                    row.insertCell(1).textContent = new Date(request.created_at).toLocaleString();
+                    row.insertCell(2).innerHTML = getStatusBadgeHTML(request.status);
+                    
+                    const actionsCell = row.insertCell(3);
+                    if (request.status === 'pending') {
+                        const approveBtn = document.createElement('button');
+                        approveBtn.className = 'action-btn';
+                        approveBtn.textContent = 'Approve';
+                        approveBtn.addEventListener('click', () => approveDemoRequest(request.id));
+                        actionsCell.appendChild(approveBtn);
+                    } else if (request.status === 'approved') {
+                        if (request.scheduled_time) {
+                            const completeBtn = document.createElement('button');
+                            completeBtn.className = 'action-btn complete-btn';
+                            completeBtn.textContent = 'Complete';
+                            completeBtn.dataset.requestId = request.id;
+                            actionsCell.appendChild(completeBtn);
+                        } else {
+                            actionsCell.innerHTML = `<button class="action-btn schedule-btn" data-request-id="${request.id}">Schedule</button>`;
+                        }
+                    } else if (request.demostatus === 'completed') {
+                        actionsCell.textContent = 'Completed';
+                    }
+                });
+            } catch (error) {
+                console.error('Error in loadDemoRequests:', error);
+                showMessage('Error loading demo requests: ' + error.message, 'error');
+            }
+        }
+
+        async function loadEnrolledCourses(adminId) {
+            try {
+                const { data, error } = await supabase
+                    .from('demo_requests')
+                    .select('id, name, class_type, selected_timing_start, selected_timing_end, meet_link, scheduled_time')
+                    .eq('tutor_id', adminId)
+                    .eq('status', 'enrolled')
+                    .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const tableBody = document.querySelector('#enrolledCoursesTable tbody');
+            tableBody.innerHTML = '';
+
+            data.forEach(course => {
+                const row = tableBody.insertRow();
+                row.insertCell(0).textContent = course.name || 'N/A';
+                row.insertCell(1).textContent = course.class_type || 'N/A';
+                row.insertCell(2).textContent = `${course.selected_timing_start || 'N/A'} - ${course.selected_timing_end || 'N/A'}`;
+                
+                const linkCell = row.insertCell(3);
+                if (course.meet_link) {
+                    linkCell.innerHTML = `
+                        <a href="${course.meet_link}" target="_blank">${course.meet_link}</a>
+                        <br>
+                        <small>Scheduled: ${course.scheduled_time ? new Date(course.scheduled_time).toLocaleString() : 'Not set'}</small>
+                    `;
+                } else {
+                    linkCell.innerHTML = `<button class="action-btn add-link-btn" data-request-id="${course.id}">Add Link & Schedule</button>`;
+                }
+            });
+        } catch (error) {
+            console.error('Error loading enrolled courses:', error);
+            showMessage('Error loading enrolled courses: ' + error.message, 'error');
+        }
+        }
+
+        async function approveDemoRequest(requestId) {
+            try {
+                const { data: currentData, error: fetchError } = await supabase
+                    .from('demo_requests')
+                    .select('status')
+                    .eq('id', requestId)
+                    .single();
+
+                if (fetchError) throw new Error('Error fetching current status');
+                
+                if (currentData.status !== 'pending') {
+                    throw new Error('Only pending requests can be approved');
+                }
+
+                const { data, error } = await supabase
+                    .from('demo_requests')
+                    .update({ status: 'approved' })
+                    .eq('id', requestId)
+                    .select();
+
+                if (error) throw error;
+
+                showMessage('Demo request approved successfully', 'success');
+                await loadDashboardData();
+            } catch (error) {
+                console.error('Error approving demo request:', error);
+                showMessage(`Error approving demo request: ${error.message}`, 'error');
+            }
+        }
+
+        function openScheduleModal(requestId) {
+            currentDemoRequestId = requestId;
+            document.getElementById('scheduleModal').style.display = 'block';
+        }
+
+        function openLinkModal(requestId) {
+            currentDemoRequestId = requestId;
+            document.getElementById('linkModal').style.display = 'block';
+        }
+
+        function openAssignStageModal(requestId) {
+            currentDemoRequestId = requestId;
+            document.getElementById('assignStageModal').style.display = 'block';
+        }
+
+        async function submitSchedule() {
+            const meetLink = document.getElementById('meetLink').value;
+            const demoDateTime = document.getElementById('demoDateTime').value;
+            if (!meetLink || !demoDateTime) {
+                showMessage('Please enter both meet link and date/time', 'error');
+                return;
+            }
+
+            try {
+                const { data: currentData, error: fetchError } = await supabase
+                    .from('demo_requests')
+                    .select('status')
+                    .eq('id', currentDemoRequestId)
+                    .single();
+
+                if (fetchError) throw new Error(fetchError.message);
+
+                if (currentData.status !== 'approved') {
+                    throw new Error('Only approved demo requests can be scheduled');
+                }
+
+                const { data, error } = await supabase
+                    .from('demo_requests')
+                    .update({ 
+                        scheduled_time: demoDateTime,
+                        meet_link: meetLink
+                    })
+                    .eq('id', currentDemoRequestId);
+
+                if (error) throw error;
+
+                showMessage('Demo class scheduled successfully', 'success');
+                document.getElementById('scheduleModal').style.display = 'none';
+                document.getElementById('demoDateTime').value = '';
+                document.getElementById('meetLink').value = '';
+                await loadDashboardData();
+            } catch (error) {
+                console.error('Error scheduling demo class:', error);
+                showMessage(`Error scheduling demo class: ${error.message}`, 'error');
+            }
+        }
+
+        async function submitAssignedStage() {
+            const stage = document.getElementById('studentStage').value;
+            if (!stage) {
+                showMessage('Please select a stage', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('demo_requests')
+                    .update({ 
+                        demostatus: 'completed',
+                        meet_link: null,
+                        scheduled_time: null,
+                        assigned_stage: stage
+                    })
+                    .eq('id', currentDemoRequestId);
+
+                if (error) throw error;
+
+                showMessage('Demo request completed and stage assigned successfully', 'success');
+                document.getElementById('assignStageModal').style.display = 'none';
+                document.getElementById('studentStage').value = '';
+                await loadDashboardData();
+            } catch (error) {
+                console.error('Error completing demo request and assigning stage:', error);
+                showMessage(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function submitClassLink() {
+            const classLink = document.getElementById('classLink').value;
+            const classDateTime = document.getElementById('classDateTime').value;
+            if (!classLink || !classDateTime) {
+                showMessage('Please enter both class link and schedule time', 'error');
+                return;
+            }
+
+            try {
+                const { data: currentData, error: fetchError } = await supabase
+                    .from('demo_requests')
+                    .select('status')
+                    .eq('id', currentDemoRequestId)
+                    .single();
+
+                if (fetchError) throw new Error(fetchError.message);
+
+                if (currentData.status !== 'enrolled') {
+                    throw new Error('Only enrolled courses can have a class link added');
+                }
+
+                const { data, error } = await supabase
+                    .from('demo_requests')
+                    .update({ 
+                        meet_link: classLink,
+                        scheduled_time: classDateTime
+                    })
+                    .eq('id', currentDemoRequestId);
+
+                if (error) throw error;
+
+                showMessage('Class link and schedule submitted successfully', 'success');
+                document.getElementById('linkModal').style.display = 'none';
+                await loadDashboardData();
+            } catch (error) {
+                console.error('Error submitting class link and schedule:', error);
+                showMessage(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('adminId');
+            localStorage.removeItem('adminName');
+            window.location.href = 'admin-login.html';
+        }
+
+        // Close modal when clicking on <span> (x)
+        document.querySelectorAll('.close').forEach(closeBtn => {
+            closeBtn.onclick = function() {
+                this.closest('.modal').style.display = 'none';
+            }
+        });
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            if (event.target.className === 'modal') {
+                event.target.style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadDashboardData);
+    </script>
+
+    <!-- Modal for assigning stage -->
+    <div id="assignStageModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Assign Student Stage</h2>
+            <select id="studentStage" required>
+                <option value="">Select a stage</option>
+                <option value="initial">Initial</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+            </select>
+            <button class="modal-btn" onclick="submitAssignedStage()">Assign and Complete</button>
+        </div>
+    </div>
+</body>
+</html>
+
