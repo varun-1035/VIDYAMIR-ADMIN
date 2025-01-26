@@ -357,6 +357,7 @@
     <script>
         const SUPABASE_URL = 'https://qjdpzaezmtsdnnxuphim.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqZHB6YWV6bXRzZG5ueHVwaGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwODQyNzcsImV4cCI6MjA0NjY2MDI3N30.1lCVZaxUsm3uROyKtErN9fYr1KxtaY9yj0jNv1k7WmY';
+        const BREVO_API_KEY = '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';
         
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -483,39 +484,201 @@
                     .eq('status', 'enrolled')
                     .order('created_at', { ascending: false });
 
-            if (error) throw error;
+                if (error) throw error;
 
-            const tableBody = document.querySelector('#enrolledCoursesTable tbody');
-            tableBody.innerHTML = '';
+                const tableBody = document.querySelector('#enrolledCoursesTable tbody');
+                tableBody.innerHTML = '';
 
-            data.forEach(course => {
-                const row = tableBody.insertRow();
-                row.insertCell(0).textContent = course.name || 'N/A';
-                row.insertCell(1).textContent = course.class_type || 'N/A';
-                row.insertCell(2).textContent = `${course.selected_timing_start || 'N/A'} - ${course.selected_timing_end || 'N/A'}`;
-                
-                const linkCell = row.insertCell(3);
-                if (course.meet_link) {
-                    linkCell.innerHTML = `
-                        <a href="${course.meet_link}" target="_blank">${course.meet_link}</a>
-                        <br>
-                        <small>Scheduled: ${course.scheduled_time ? new Date(course.scheduled_time).toLocaleString() : 'Not set'}</small>
-                    `;
-                } else {
-                    linkCell.innerHTML = `<button class="action-btn add-link-btn" data-request-id="${course.id}">Add Link & Schedule</button>`;
-                }
-            });
-        } catch (error) {
-            console.error('Error loading enrolled courses:', error);
-            showMessage('Error loading enrolled courses: ' + error.message, 'error');
+                data.forEach(course => {
+                    const row = tableBody.insertRow();
+                    row.insertCell(0).textContent = course.name || 'N/A';
+                    row.insertCell(1).textContent = course.class_type || 'N/A';
+                    row.insertCell(2).textContent = `${course.selected_timing_start || 'N/A'} - ${course.selected_timing_end || 'N/A'}`;
+                    
+                    const linkCell = row.insertCell(3);
+                    if (course.meet_link) {
+                        linkCell.innerHTML = `
+                            <a href="${course.meet_link}" target="_blank">${course.meet_link}</a>
+                            <br>
+                            <small>Scheduled: ${course.scheduled_time ? new Date(course.scheduled_time).toLocaleString() : 'Not set'}</small>
+                        `;
+                    } else {
+                        linkCell.innerHTML = `<button class="action-btn add-link-btn" data-request-id="${course.id}">Add Link & Schedule</button>`;
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading enrolled courses:', error);
+                showMessage('Error loading enrolled courses: ' + error.message, 'error');
+            }
         }
+
+        async function sendApprovalEmail(email, studentName) {
+            try {
+                const response = await fetch('https://api.sendinblue.com/v3/smtp/email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api-key': BREVO_API_KEY
+                    },
+                    body: JSON.stringify({
+                        sender: { email: '22et0003@gmail.com', name: 'TutorConnect' },
+                        to: [{ email: email }],
+                        subject: 'Your Demo Request has been Approved',
+                        htmlContent: `<html><body><h1>Hello ${studentName},</h1><p>Your demo request has been approved. A tutor will contact you shortly to schedule your demo class.</p><p>Thank you for choosing TutorConnect!</p></body></html>`
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Failed to send email: ${errorData.message}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error sending approval email:', error);
+                throw error;
+            }
+        }
+
+        async function sendScheduleEmail(email, studentName, scheduledTime) {
+            try {
+                const formattedDate = new Date(scheduledTime).toLocaleString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    timeZoneName: 'short'
+                });
+
+                const response = await fetch('https://api.sendinblue.com/v3/smtp/email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api-key': BREVO_API_KEY
+                    },
+                    body: JSON.stringify({
+                        sender: { email: '22et0003@gmail.com', name: 'TutorConnect' },
+                        to: [{ email: email }],
+                        subject: 'Your TutorConnect Class is Scheduled!',
+                        htmlContent: `
+                        <!DOCTYPE html>
+                        <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+                        <head>
+                            <meta charset="utf-8">
+                            <meta name="x-apple-disable-message-reformatting">
+                            <meta http-equiv="x-ua-compatible" content="ie=edge">
+                            <meta name="viewport" content="width=device-width, initial-scale=1">
+                            <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+                            <title>Your TutorConnect Class is Scheduled</title>
+                            <style>
+                                @media only screen and (max-width: 600px) {
+                                    .sm-px-24 {
+                                        padding-left: 24px !important;
+                                        padding-right: 24px !important;
+                                    }
+                                    .sm-py-32 {
+                                        padding-top: 32px !important;
+                                        padding-bottom: 32px !important;
+                                    }
+                                    .sm-w-full {
+                                        width: 100% !important;
+                                    }
+                                }
+                            </style>
+                        </head>
+                        <body style="margin: 0; padding: 0; width: 100%; word-break: break-word; -webkit-font-smoothing: antialiased; background-color: #f3f4f6;">
+                            <div style="display: none;">Your TutorConnect class has been scheduled. Get ready for an amazing learning experience!&#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &zwnj;
+                                &#160;&#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &zwnj;
+                                &#160;&#847; &#847; &#847; &#847; &#847; </div>
+                            <div role="article" aria-roledescription="email" aria-label="Your TutorConnect Class is Scheduled" lang="en">
+                                <table style="font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; width: 100%;" cellpadding="0" cellspacing="0" role="presentation">
+                                    <tr>
+                                        <td align="center" style="background-color: #f3f4f6;">
+                                            <table class="sm-w-full" style="width: 600px;" cellpadding="0" cellspacing="0" role="presentation">
+                                                <tr>
+                                                    <td class="sm-py-32 sm-px-24" style="padding: 48px; text-align: center;">
+                                                        <a href="https://vidyamitr.com">
+                                                            <img src="https://your-logo-url.com" width="75" alt="TutorConnect Logo" style="border: 0; max-width: 100%; vertical-align: middle;">
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td align="center" class="sm-px-24">
+                                                        <table style="width: 100%;" cellpadding="0" cellspacing="0" role="presentation">
+                                                            <tr>
+                                                                <td class="sm-px-24" style="background-color: #ffffff; border-radius: 4px; font-size: 16px; line-height: 24px; padding: 48px; text-align: left; color: #1f2937;">
+                                                                    <p style="font-weight: 600; font-size: 18px; margin-bottom: 0;">Hello ${studentName},</p>
+                                                                    <p style="margin: 24px 0;">Great news! Your TutorConnect class has been scheduled. Get ready for an amazing learning experience!</p>
+                                                                    <table style="width: 100%;" cellpadding="0" cellspacing="0" role="presentation">
+                                                                        <tr>
+                                                                            <td style="padding: 16px; background-color: #f3f4f6; border-radius: 4px;">
+                                                                                <p style="margin: 0; font-weight: 600;">Class Details:</p>
+                                                                                <p style="margin: 8px 0 0;">📅 Date and Time: ${formattedDate}</p>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </table>
+                                                                    <p style="margin: 24px 0;">To join your class, please log in to your TutorConnect account and navigate to the "My Classes" section. There, you'll find the meeting link for your scheduled session.</p>
+                                                                    <table style="width: 100%;" cellpadding="0" cellspacing="0" role="presentation">
+                                                                        <tr>
+                                                                            <td>
+                                                                                <div style="text-align: center;">
+                                                                                    <a href="https://vidyamitr.com" style="background-color: #3b82f6; border-radius: 4px; color: #ffffff; display: inline-block; font-size: 16px; font-weight: 600; line-height: 1; padding: 16px 32px; text-align: center; text-decoration: none;">Log In to Your Account</a>
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </table>
+                                                                    <p style="margin: 24px 0;">If you have any questions or need to reschedule, please don't hesitate to contact our support team.</p>
+                                                                    <p style="margin: 24px 0;">Best regards,<br>The TutorConnect Team</p>
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="height: 32px;"></td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="padding-left: 24px; padding-right: 24px; text-align: center; font-size: 12px; color: #4b5563;">
+                                                                    <p style="margin: 0; font-style: italic;">If you have any issues or questions, please contact our support team.</p>
+                                                                    <p style="margin: 0; font-weight: 600;">TutorConnect</p>
+                                                                    <p style="margin: 0;">1234 TutorConnect Street, Education City 98765</p>
+                                                                    <p style="margin: 0; margin-top: 16px;">
+                                                                        <a href="https://tutorconnect.com" style="color: #3b82f6; text-decoration: none;">Website</a> &bull;
+                                                                        <a href="https://twitter.com/tutorconnect" style="color: #3b82f6; text-decoration: none;">Twitter</a> &bull;
+                                                                        <a href="https://instagram.com/tutorconnect" style="color: #3b82f6; text-decoration: none;">Instagram</a>
+                                                                    </p>
+                                                                </td>
+                                                            </tr>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </body>
+                        </html>
+                        `
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Failed to send email: ${errorData.message}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error sending schedule email:', error);
+                throw error;
+            }
         }
 
         async function approveDemoRequest(requestId) {
             try {
                 const { data: currentData, error: fetchError } = await supabase
                     .from('demo_requests')
-                    .select('status')
+                    .select('status, email, name')
                     .eq('id', requestId)
                     .single();
 
@@ -533,7 +696,10 @@
 
                 if (error) throw error;
 
-                showMessage('Demo request approved successfully', 'success');
+                // Send approval email
+                await sendApprovalEmail(currentData.email, currentData.name);
+
+                showMessage('Demo request approved successfully and email sent', 'success');
                 await loadDashboardData();
             } catch (error) {
                 console.error('Error approving demo request:', error);
@@ -567,9 +733,8 @@
             try {
                 const { data: currentData, error: fetchError } = await supabase
                     .from('demo_requests')
-                    .select('status')
-                    .eq('id', currentDemoRequestId)
-                    .single();
+                    .select('status, email, name')
+                    .eq('id', currentDemoRequestId).single();
 
                 if (fetchError) throw new Error(fetchError.message);
 
@@ -587,7 +752,10 @@
 
                 if (error) throw error;
 
-                showMessage('Demo class scheduled successfully', 'success');
+                // Send schedule email
+                await sendScheduleEmail(currentData.email, currentData.name, demoDateTime);
+
+                showMessage('Demo class scheduled successfully and email sent', 'success');
                 document.getElementById('scheduleModal').style.display = 'none';
                 document.getElementById('demoDateTime').value = '';
                 document.getElementById('meetLink').value = '';
@@ -639,7 +807,7 @@
             try {
                 const { data: currentData, error: fetchError } = await supabase
                     .from('demo_requests')
-                    .select('status')
+                    .select('status, email, name')
                     .eq('id', currentDemoRequestId)
                     .single();
 
@@ -659,7 +827,10 @@
 
                 if (error) throw error;
 
-                showMessage('Class link and schedule submitted successfully', 'success');
+                // Send schedule email
+                await sendScheduleEmail(currentData.email, currentData.name, classDateTime);
+
+                showMessage('Class link and schedule submitted successfully and email sent', 'success');
                 document.getElementById('linkModal').style.display = 'none';
                 await loadDashboardData();
             } catch (error) {
